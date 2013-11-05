@@ -7,10 +7,11 @@ var async = require("async");
 var exec = require("child_process").exec
 var xml2js = require("xml2js").parseString;
 
-var process_env = _.pick(process.env, "ML_USER", "ML_PASS");
+var process_env = _.pick(process.env, "ML_DOMAIN", "ML_USER", "ML_PASS");
 var config = {
-	user: process_env.ML_USER        || "",
-	passwd: process_env.ML_PASS      || ""
+	domain: process_env.ML_DOMAIN || "",
+	user: process_env.ML_USER     || "",
+	passwd: process_env.ML_PASS   || ""
 };
 
 // curl_get_calendar_items
@@ -21,7 +22,7 @@ var curl_get_calendar_items = [
 	'-H "User-Agent: Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1; SV1)"',
 	'-H "Content-Type: text/xml; charset=utf-8"',
 	'-H \'SOAPAction: "http://schemas.microsoft.com/exchange/services/2006/messages/FindItem"\'',
-	'-u \'sky.dom\\{user}:{passwd}\'',
+	'-u \'{domain}\\{user}:{passwd}\'',
 	'-d \'<?xml version="1.0" encoding="UTF-8"?><SOAP-ENV:Envelope xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/" xmlns:ns1="http://schemas.microsoft.com/exchange/services/2006/types" xmlns:ns2="http://schemas.microsoft.com/exchange/services/2006/messages"><SOAP-ENV:Header><ns1:RequestServerVersion Version="Exchange2010"/></SOAP-ENV:Header><SOAP-ENV:Body><ns2:FindItem Traversal="Shallow"><ns2:ItemShape><ns1:BaseShape>Default</ns1:BaseShape></ns2:ItemShape><ns2:CalendarView StartDate="{start}" EndDate="{end}"/><ns2:ParentFolderIds><ns1:DistinguishedFolderId Id="calendar"/></ns2:ParentFolderIds></ns2:FindItem></SOAP-ENV:Body></SOAP-ENV:Envelope>\'',
 	'https://webmail.marketleader.com/EWS/Exchange.asmx'
 ].join(" ");
@@ -34,7 +35,7 @@ var curl_get_calendar_item = [
 	'-H "User-Agent: Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1; SV1)"',
 	'-H "Content-Type: text/xml; charset=utf-8"',
 	'-H \'SOAPAction: "http://schemas.microsoft.com/exchange/services/2006/messages/GetItem"\'',
-	'-u \'sky.dom\\{user}:{passwd}\'',
+	'-u \'{domain}\\{user}:{passwd}\'',
 	'-d \'<?xml version="1.0" encoding="UTF-8"?><SOAP-ENV:Envelope xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/" xmlns:ns1="http://schemas.microsoft.com/exchange/services/2006/types" xmlns:ns2="http://schemas.microsoft.com/exchange/services/2006/messages"><SOAP-ENV:Header><ns1:RequestServerVersion Version="Exchange2010"/></SOAP-ENV:Header><SOAP-ENV:Body><ns2:GetItem><ns2:ItemShape><ns1:BaseShape>AllProperties</ns1:BaseShape></ns2:ItemShape><ns2:ItemIds><ns1:ItemId Id="{id}" ChangeKey="{change_key}"/></ns2:ItemIds></ns2:GetItem></SOAP-ENV:Body></SOAP-ENV:Envelope>\'',
 	'https://webmail.marketleader.com/EWS/Exchange.asmx'
 ].join(" ");
@@ -70,7 +71,7 @@ var get_calendar_items = function(start, end, callback) {
 	start = start.toISOString().replace(/\.[0-9]{3}Z/, "Z");
 	end = end.toISOString().replace(/\.[0-9]{3}Z/, "Z");
 
-	exec(curl_get_calendar_items.format({user: config.user, passwd: config.passwd, start: start, end: end}), function(error, stdout/*, stderr*/) {
+	exec(curl_get_calendar_items.format({domain: config.domain, user: config.user, passwd: config.passwd, start: start, end: end}), function(error, stdout/*, stderr*/) {
 		stdout = (""+stdout).replace(/[smt]:/g, "");
 		xml2js(stdout, function(err, result) {
 			var items = hash_get(result, "Envelope.Body.FindItemResponse.ResponseMessages.FindItemResponseMessage.RootFolder.Items.CalendarItem", []);
@@ -85,7 +86,7 @@ var get_calendar_item = function(item, done) {
 	var id = hash_get(attrs, "Id", "");
 	var change_key = hash_get(attrs, "ChangeKey", "");
 
-	exec(curl_get_calendar_item.format({user: config.user, passwd: config.passwd, id: id, change_key: change_key}), function(error, stdout/*, stderr*/) {
+	exec(curl_get_calendar_item.format({domain: config.domain, user: config.user, passwd: config.passwd, id: id, change_key: change_key}), function(error, stdout/*, stderr*/) {
 		stdout = (""+stdout).replace(/[smt]:/g, "");
 		xml2js(stdout, function(err, result) {
 			var calendar_item = hash_get(result, "Envelope.Body.GetItemResponse.ResponseMessages.GetItemResponseMessage.Items.CalendarItem", []).pop();
