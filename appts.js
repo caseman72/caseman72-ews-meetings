@@ -1,18 +1,26 @@
 // requires
 require("date-utils");
-require("string-utils");
+require("string-utils-cwm");
 
 var _ = require("underscore");
 var async = require("async");
 var exec = require("child_process").exec
 var xml2js = require("xml2js").parseString;
 
-var process_env = _.pick(process.env, "ML_DOMAIN", "ML_USER", "ML_PASS");
+var process_env = _.pick(process.env, "EWS_DOMAIN", "EWS_USER", "EWS_PASS", "EWS_URL");
 var config = {
-	domain: process_env.ML_DOMAIN || "",
-	user: process_env.ML_USER     || "",
-	passwd: process_env.ML_PASS   || ""
+	domain: process_env.EWS_DOMAIN || "",
+	user: process_env.EWS_USER     || "",
+	passwd: process_env.EWS_PASS   || "",
+	url: process_env.EWS_URL       || ""
 };
+
+Object.keys(config).forEach(function(prop) {
+	if (!config[prop]) {
+		console.log("Error: env variable '{0}' not set!".format(prop));
+		process.exit(1);
+	}
+});
 
 // curl_get_calendar_items
 var curl_get_calendar_items = [
@@ -24,7 +32,7 @@ var curl_get_calendar_items = [
 	'-H \'SOAPAction: "http://schemas.microsoft.com/exchange/services/2006/messages/FindItem"\'',
 	'-u \'{domain}\\{user}:{passwd}\'',
 	'-d \'<?xml version="1.0" encoding="UTF-8"?><SOAP-ENV:Envelope xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/" xmlns:ns1="http://schemas.microsoft.com/exchange/services/2006/types" xmlns:ns2="http://schemas.microsoft.com/exchange/services/2006/messages"><SOAP-ENV:Header><ns1:RequestServerVersion Version="Exchange2010"/></SOAP-ENV:Header><SOAP-ENV:Body><ns2:FindItem Traversal="Shallow"><ns2:ItemShape><ns1:BaseShape>Default</ns1:BaseShape></ns2:ItemShape><ns2:CalendarView StartDate="{start}" EndDate="{end}"/><ns2:ParentFolderIds><ns1:DistinguishedFolderId Id="calendar"/></ns2:ParentFolderIds></ns2:FindItem></SOAP-ENV:Body></SOAP-ENV:Envelope>\'',
-	'https://webmail.marketleader.com/EWS/Exchange.asmx'
+	'https://{url}/EWS/Exchange.asmx'
 ].join(" ");
 
 // curl_get_calendar_item
@@ -37,7 +45,7 @@ var curl_get_calendar_item = [
 	'-H \'SOAPAction: "http://schemas.microsoft.com/exchange/services/2006/messages/GetItem"\'',
 	'-u \'{domain}\\{user}:{passwd}\'',
 	'-d \'<?xml version="1.0" encoding="UTF-8"?><SOAP-ENV:Envelope xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/" xmlns:ns1="http://schemas.microsoft.com/exchange/services/2006/types" xmlns:ns2="http://schemas.microsoft.com/exchange/services/2006/messages"><SOAP-ENV:Header><ns1:RequestServerVersion Version="Exchange2010"/></SOAP-ENV:Header><SOAP-ENV:Body><ns2:GetItem><ns2:ItemShape><ns1:BaseShape>AllProperties</ns1:BaseShape></ns2:ItemShape><ns2:ItemIds><ns1:ItemId Id="{id}" ChangeKey="{change_key}"/></ns2:ItemIds></ns2:GetItem></SOAP-ENV:Body></SOAP-ENV:Envelope>\'',
-	'https://webmail.marketleader.com/EWS/Exchange.asmx'
+	'https://{url}/EWS/Exchange.asmx'
 ].join(" ");
 
 // helpers
@@ -71,9 +79,9 @@ var get_calendar_items = function(start, end, callback) {
 	start = start.toISOString().replace(/\.[0-9]{3}Z/, "Z");
 	end = end.toISOString().replace(/\.[0-9]{3}Z/, "Z");
 
-	exec(curl_get_calendar_items.format({domain: config.domain, user: config.user, passwd: config.passwd, start: start, end: end}), function(error, stdout/*, stderr*/) {
+	exec(curl_get_calendar_items.format(config).format({start: start, end: end}), function(err_not_used, stdout/*, stderr*/) {
 		stdout = (""+stdout).replace(/[smt]:/g, "");
-		xml2js(stdout, function(err, result) {
+		xml2js(stdout, function(err_not_used, result) {
 			var items = hash_get(result, "Envelope.Body.FindItemResponse.ResponseMessages.FindItemResponseMessage.RootFolder.Items.CalendarItem", []);
 			async.each(items, get_calendar_item, function() { callback(items) });
 		});
@@ -86,15 +94,15 @@ var get_calendar_item = function(item, done) {
 	var id = hash_get(attrs, "Id", "");
 	var change_key = hash_get(attrs, "ChangeKey", "");
 
-	exec(curl_get_calendar_item.format({domain: config.domain, user: config.user, passwd: config.passwd, id: id, change_key: change_key}), function(error, stdout/*, stderr*/) {
+	exec(curl_get_calendar_item.format(config).format({id: id, change_key: change_key}), function(err_not_used, stdout/*, stderr*/) {
 		stdout = (""+stdout).replace(/[smt]:/g, "");
-		xml2js(stdout, function(err, result) {
+		xml2js(stdout, function(err_not_used, result) {
 			var calendar_item = hash_get(result, "Envelope.Body.GetItemResponse.ResponseMessages.GetItemResponseMessage.Items.CalendarItem", []).pop();
 			var body = hash_get(calendar_item, "Body._", "");
 
 			// special ones
-			item["G2M"] = (function(p){return p && p.length === 2 ? "http://{0}".format(p[1]) : ""})(/(www2\.gotomeeting\.com\/join\/[0-9]{9})/.exec(body));
-			item["Webex"] = (function(p){return p && p.length === 2 ? "http://{0}".format(p[1]) : ""})(/(trulia\.webex\.com[^<>"]+)/.exec(body));
+			item["G2M"] = (function(p){return p && p.length === 2 ? "https://{0}".format(p[1]) : ""})(/([^\/]+\.gotomeeting\.com\/join\/[0-9]{9})/.exec(body));
+			item["Webex"] = (function(p){return p && p.length === 2 ? "https://{0}".format(p[1]) : ""})(/([^\/]+\.webex\.com[^<>"]+)/.exec(body));
 
 			// simple values
 			item["ItemId"] = id;

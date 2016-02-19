@@ -1,0 +1,21 @@
+#!/bin/bash
+#
+## parameters
+#
+# EWS_URL=webmail.example.com  ... url without protocal where webmail is found
+# EWS_DOMAIN=user_domain ... Before the \ on your username like user_domain\user_name
+# EWS_USER=user_name ... your user name
+# EWS_PASS=password ... raw text password (see below)
+
+## MacOS security (remove raw passwords)
+#
+# To delete and/or add password:
+# security delete-generic-password -a ews
+# security add-generic-password -w <password> -a ews -s login
+#
+# password=`security find-generic-password -w -a ews`
+# change to:
+#
+# EWS_PASS=$password
+#
+EWS_URL=webmail.example.com EWS_DOMAIN=user_domain EWS_USER=user_name EWS_PASS=password node appts.js
