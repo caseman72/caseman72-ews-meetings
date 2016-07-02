@@ -234,4 +234,4 @@ module.exports = function(args, callback) {
 			});
 		});
 };
-module.exports(process.env, function(m) { console.log(m); process.exit() });
+//module.exports(process.env, function(m) { console.log(m); process.exit() });
