@@ -1,4 +1,4 @@
-node-ews-appts
+caseman72-ews-meetings
 ==============
 
-node-ews-appts
+caseman72-ews-meetings
