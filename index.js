@@ -16,7 +16,7 @@ module.exports = function(args, callback) {
 		tld: process_env.EWS_TLD || "",
 		auth: process_env.EWS_AUTH || "",
 		start: process_env.EWS_START || "",
-		tz: process_env.EWS_TZ || "America/Los_Angeles"
+		tz: process_env.EWS_TZ || ""
 	};
 
 	if (!config.tld || !config.auth) {
@@ -26,26 +26,25 @@ module.exports = function(args, callback) {
 	Object.defineProperty(config, "startDate", {
 		enumerable: true,
 		get: function() {
-			var start = this.start ? this.start : helper.formatDate(new Date(), config.tz).replace(/[ ].*$/, "");
-			return new Date(start);
+			return helper.gmtStart(this.start ? this.start : new Date(), config.tz);
 		}
 	});
 	Object.defineProperty(config, "startString", {
 		enumerable: true,
 		get: function() {
-			return this.startDate.toISOString().replace(/\.\d{3}Z/, "Z");
+			return helper.formatIso(this.startDate, config.tz);
 		}
 	});
 	Object.defineProperty(config, "endDate", {
 		enumerable: true,
 		get: function() {
-			return helper.nextDay(this.startDate, config.tz);
+			return helper.gmtEnd(this.startDate, config.tz);
 		}
 	});
 	Object.defineProperty(config, "endString", {
 		enumerable: true,
 		get: function() {
-			return this.endDate.toISOString().replace(/\.\d{3}Z/, "Z");
+			return helper.formatIso(this.endDate, config.tz);
 		}
 	});
 
@@ -235,4 +234,4 @@ module.exports = function(args, callback) {
 			});
 		});
 };
-//module.exports(process.env, function(m) { console.log(m); process.exit() });
+module.exports(process.env, function(m) { console.log(m); process.exit() });
